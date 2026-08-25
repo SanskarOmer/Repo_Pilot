@@ -1,6 +1,5 @@
 package repoPilot.backend.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,15 +15,15 @@ import repoPilot.backend.security.GithubOAuth2UserService;
 
 @Configuration
 @EnableWebSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private AuthenticationSuccessHandler  oauth2SuccessHandler;
-    private AuthenticationFailureHandler oauth2FailureHandler;
-    private GithubOAuth2UserService githubOAuth2UserService;
-
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            GithubOAuth2UserService githubOAuth2UserService,
+            AuthenticationSuccessHandler oauth2SuccessHandler,
+            AuthenticationFailureHandler oauth2FailureHandler) throws Exception {
+
         http
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
@@ -46,10 +45,10 @@ public class SecurityConfig {
                         ex.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 ).oauth2Login(oauth -> oauth
                         .userInfoEndpoint(userInfo -> userInfo
-                                .userService(githubOAuth2UserService)
+                                .userService(githubOAuth2UserService) // Injected from parameter
                         )
-                        .successHandler(oauth2SuccessHandler)
-                        .failureHandler(oauth2FailureHandler)
+                        .successHandler(oauth2SuccessHandler)         // Injected from parameter
+                        .failureHandler(oauth2FailureHandler)         // Injected from parameter
                 )
                 .logout(logout -> logout
                         .logoutUrl("/api/auth/logout")
@@ -61,12 +60,11 @@ public class SecurityConfig {
                         .deleteCookies("REPOPILOT_SESSION")
                 );
 
-
         return http.build();
     }
 
     @Bean
-    AuthenticationSuccessHandler oauth2SuccessHandler(
+    public AuthenticationSuccessHandler oauth2SuccessHandler(
             @Value("${app.frontend-url}") String frontendUrl) {
         SimpleUrlAuthenticationSuccessHandler handler = new SimpleUrlAuthenticationSuccessHandler();
         handler.setDefaultTargetUrl(frontendUrl + "/auth/callback");
@@ -74,7 +72,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    AuthenticationFailureHandler oauth2FailureHandler(
+    public AuthenticationFailureHandler oauth2FailureHandler(
             @Value("${app.frontend-url}") String frontendUrl) {
         SimpleUrlAuthenticationFailureHandler handler = new SimpleUrlAuthenticationFailureHandler();
         handler.setDefaultFailureUrl(frontendUrl + "/login?error=oauth_failed");
